@@ -1,4 +1,4 @@
-name: K8s Casa - Cluster Info
+name: K8s Casa - Delete ECK (Elastic)
 
 on:
   workflow_dispatch:
@@ -7,6 +7,7 @@ env:
   PROJECT_ID: ${{ secrets.PROJECT_ID }}
   GKE_CLUSTER: casa
   GKE_ZONE: europe-west2
+  NAMESPACE: casa
 
 jobs:
   cluster-info:
@@ -36,6 +37,13 @@ jobs:
         cluster_name: ${{ env.GKE_CLUSTER }}
         location: ${{ env.GKE_ZONE }}
 
-    - name: Info
+    - name: Delete Elastic
       run: |-
-        kubectl cluster-info
+        echo "Uninstalling Elastic Cloud Kubernetes..."
+        kubectl delete -f eck/enterprise-search.yaml -n ${{ env.NAMESPACE }}
+        kubectl delete -f eck/kibana.yaml -n ${{ env.NAMESPACE }}
+        kubectl delete -f eck/elastic-search-cluster.yaml -n ${{ env.NAMESPACE }}
+        kubectl delete -f https://download.elastic.co/downloads/eck/1.9.1/operator.yaml
+        kubectl delete -f https://download.elastic.co/downloads/eck/1.9.1/crds.yaml	
+        kubectl get namespaces --no-headers -o custom-columns=:metadata.name | xargs -n1 kubectl delete elastic --all -n
+        echo "\nFor more information visit: https://www.elastic.co/guide/en/cloud-on-k8s/current/k8s-uninstalling-eck.html"

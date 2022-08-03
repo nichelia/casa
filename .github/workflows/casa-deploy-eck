@@ -1,0 +1,75 @@
+name: K8s Casa - Deploy ECK (Elastic)
+
+on:
+  workflow_dispatch:
+
+env:
+  PROJECT_ID: ${{ secrets.PROJECT_ID }}
+  GKE_CLUSTER: casa
+  GKE_ZONE: europe-west2
+  NAMESPACE: casa
+
+jobs:
+  cluster-info:
+    name: Casa Cluster information
+    runs-on: ubuntu-latest
+    environment: production
+
+    permissions:
+      contents: 'read'
+      id-token: 'write'
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v3
+
+    - id: 'auth'
+      name: 'Authenticate to Google Cloud'
+      uses: 'google-github-actions/auth@v0'
+      with:
+        token_format: 'access_token'
+        workload_identity_provider: '${{ secrets.WIF_PROVIDER }}'
+        service_account: '${{ secrets.WIF_SERVICE_ACCOUNT }}'
+
+    - name: Set up GKE credentials
+      uses: google-github-actions/get-gke-credentials@v0
+      with:
+        cluster_name: ${{ env.GKE_CLUSTER }}
+        location: ${{ env.GKE_ZONE }}
+
+    - name: Create namespace
+      run: |-
+        kubectl create ns ${{ env.NAMESPACE }}
+
+    - name: Deploy ECK Operator
+      run: |-
+        echo "Deploying ECK Operator..."
+        kubectl create -f https://download.elastic.co/downloads/eck/1.9.1/crds.yaml
+        kubectl apply -f https://download.elastic.co/downloads/eck/1.9.1/operator.yaml
+        echo "\nTo check the status of the operator run:\nkubectl -n elastic-system logs -f statefulset.apps/elastic-operator"
+    
+    - name: Deploy Elastic Search
+      run: |-
+        echo "Deploying Elastic Search Cluster..."
+        kubectl apply -f eck/elastic-search-cluster.yaml -n ${{ env.NAMESPACE }}
+        echo "\nTo check the status of the deployment run:\nkubectl get elasticsearch"
+        echo "For the pod checks run:\nkubectl get pods --selector='elasticsearch.k8s.elastic.co/cluster-name=elasticsearch'"
+        echo "For the logs of the pod:\nkubectl logs -f elasticsearch-es-default-0"
+        echo "For more information visit: https://www.elastic.co/guide/en/cloud-on-k8s/current/k8s-deploy-eck.html"
+
+    - name: Deploy Kibana
+      run: |-
+        echo "Deploying Elastic Kibana..."
+        kubectl apply -f eck/kibana.yaml -n ${{ env.NAMESPACE }}
+        echo "\nTo check the status of the deployment run:\nkubectl get kibana"
+        echo "For the pod checks run:\nkubectl get pod --selector='kibana.k8s.elastic.co/name=kibana'"
+        echo "For the logs of the pod:\nkubectl logs -f kibana-es-default-0"
+        echo "For more information visit: https://www.elastic.co/guide/en/cloud-on-k8s/current/k8s-deploy-kibana.html"
+
+    - name: Deploy Enterprise Search
+      run: |-
+        echo "Deploying Elastic Enterprise Search..."
+        kubectl apply -f eck/enterprise-search.yaml -n ${{ env.NAMESPACE }}
+        echo "\nTo check the status of the deployment run:\nkubectl get enterprisesearch"
+        echo "For the pod checks run:\nkubectl get pods --selector='enterprisesearch.k8s.elastic.co/name=enterprise-search'"
+        echo "For more information visit: https://www.elastic.co/guide/en/cloud-on-k8s/current/k8s-enterprise-search-quickstart.html"
