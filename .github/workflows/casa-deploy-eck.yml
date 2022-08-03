@@ -39,7 +39,7 @@ jobs:
 
     - name: Create namespace
       run: |-
-        kubectl create ns ${{ env.NAMESPACE }}
+        kubectl create namespace ${{ env.NAMESPACE }} --dry-run=client -o yaml | kubectl apply -f -
 
     - name: Deploy ECK Operator
       run: |-
